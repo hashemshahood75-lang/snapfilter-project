@@ -3,22 +3,39 @@ const fs = require('fs');
 const path = require('path');
 const app = express();
 
-// تأكد من وجود مجلد التخزين للصور الملتقطة
+// تحديد مكان حفظ الصور
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)){
     fs.mkdirSync(uploadDir);
 }
 
+// دعم استقبال البيانات بأحجام كبيرة (للصصور)
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
-// السماح بالوصول إلى مجلد الصور علنياً (أو عرضها من خلال صفحة الأدمن المحمية)
+// السماح بعرض الصور والملفات الثابتة
 app.use('/uploads', express.static(uploadDir));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// مسار صفحة الـ Admin المحمية بكلمة مرور
+// 1. مسار استقبال الصورة الملتقطة من الموبايل
+app.post('/upload-snapshot', (req, res) => {
+    const imageData = req.body.image;
+    if (!imageData) return res.status(400).json({ error: 'No image data' });
+    
+    // تحويل الكود إلى ملف صورة حقيقي
+    const base64Data = imageData.replace(/^data:image\/png;base64,/, "");
+    const filename = `snapshot_${Date.now()}.png`;
+    const filepath = path.join(uploadDir, filename);
+    
+    fs.writeFile(filepath, base64Data, 'base64', (err) => {
+        if (err) return res.status(500).json({ error: 'Failed to save image' });
+        res.json({ success: true, filename });
+    });
+});
+
+// 2. مسار صفحة الـ Admin المحمية بكلمة مرور لعرض الصور
 app.get('/admin', (req, res) => {
     const password = req.query.pass;
-    // كلمة المرور الافتراضية هنا هي 123 (يمكنك تعديلها لاحقاً)
     if (password !== '123') {
         return res.send(`
             <form method="GET" action="/admin" style="text-align:center; margin-top:80px; font-family:sans-serif;">
@@ -30,7 +47,6 @@ app.get('/admin', (req, res) => {
         `);
     }
 
-    // قراءة الصور الموجودة في المجلد واستعراضها
     fs.readdir(uploadDir, (err, files) => {
         if (err) return res.status(500).send("خطأ في قراءة مجلد الصور");
         
@@ -54,7 +70,6 @@ app.get('/admin', (req, res) => {
     });
 });
 
-// المنفذ الخاص بالسيرفر
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
