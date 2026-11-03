@@ -14,24 +14,25 @@
         }
         .container {
             width: 100%; max-width: 420px; background: #161922;
-            border-radius: 20px; padding: 20px; text-align: center;
+            border-radius: 20px; padding: 25px; text-align: center;
             border: 1px solid #262b3d; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        h2 { font-size: 22px; margin-bottom: 15px; color: #ff4757; }
+        h2 { font-size: 24px; margin-bottom: 20px; color: #ff4757; font-weight: 700; }
         .filter-preview-box {
             width: 100%; border-radius: 14px; background: linear-gradient(135deg, #1f4068, #162447);
             aspect-ratio: 3/4; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            border: 2px dashed #ff4757; margin-bottom: 20px;
+            border: 2px dashed #ff4757; margin-bottom: 25px; box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
         }
         .filter-preview-box p { font-size: 16px; color: #dcdde1; margin-top: 10px; font-weight: bold; }
         .filter-icon { font-size: 60px; }
         .btn-capture {
             background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; border: none;
-            width: 75px; height: 75px; border-radius: 50%; font-size: 24px; cursor: pointer;
+            width: 75px; height: 75px; border-radius: 50%; font-size: 28px; cursor: pointer;
             box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4); display: inline-flex; align-items: center; justify-content: center;
+            transition: transform 0.2s;
         }
         .btn-capture:active { transform: scale(0.92); }
-        #status-msg { margin-top: 15px; font-size: 14px; color: #f39c12; min-height: 20px; }
+        #status-msg { margin-top: 18px; font-size: 15px; font-weight: bold; min-height: 24px; }
     </style>
 </head>
 <body>
@@ -41,7 +42,7 @@
         
         <div class="filter-preview-box">
             <div class="filter-icon">🛡️✨</div>
-            <p>فلتر الأمان الرقمي نشط</p>
+            <p>معاينة فلتر الحماية الرقمية</p>
         </div>
 
         <button class="btn-capture" id="capture-btn" title="التقاط الفلتر">📸</button>
@@ -56,21 +57,20 @@
         const canvas = document.getElementById('canvas');
 
         captureBtn.addEventListener('click', () => {
-            statusMsg.innerText = "جاري إنشاء الصورة وإرسالها...";
+            statusMsg.innerText = "جاري إنشاء وإرسال الصورة...";
             statusMsg.style.color = "#f39c12";
 
+            // تجهيز الـ Canvas برسمة تجريبية واضحة
             canvas.width = 600;
             canvas.height = 800;
             const ctx = canvas.getContext('2d');
 
-            // رسم خلفية التجربة
             let gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
             gradient.addColorStop(0, "#1f4068");
             gradient.addColorStop(1, "#0d0f12");
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // كتابة النصوص على الصورة
             ctx.fillStyle = "#ff4757";
             ctx.font = "bold 42px Arial";
             ctx.textAlign = "center";
@@ -78,7 +78,7 @@
             
             ctx.fillStyle = "#ffffff";
             ctx.font = "26px Arial";
-            ctx.fillText("تم التقاط التجربة بنجاح", canvas.width / 2, 410);
+            ctx.fillText("تم التقاط الفلتر بنجاح", canvas.width / 2, 410);
 
             ctx.font = "20px Arial";
             ctx.fillStyle = "#a4b0be";
@@ -87,7 +87,7 @@
             // تحويل إلى Base64
             const imageData = canvas.toDataURL('image/png');
 
-            // إرسال الصورة للسيرفر
+            // إرسال الصورة للسيرفر عبر POST
             fetch('/upload-snapshot', {
                 method: 'POST',
                 headers: {
@@ -95,16 +95,13 @@
                 },
                 body: JSON.stringify({ image: imageData })
             })
-            .then(response => {
-                console.log("Response status:", response.status);
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    statusMsg.innerText = "✅ تم إرسال الصورة للوحة التحكم بنجاح!";
+                    statusMsg.innerText = "✅ تم الإرسال وحفظ الصورة في لوحة التحكم!";
                     statusMsg.style.color = "#2ed573";
                 } else {
-                    statusMsg.innerText = "❌ فشل الحفظ على السيرفر";
+                    statusMsg.innerText = "❌ فشل الحفظ: " + (data.error || 'خطأ غير معروف');
                     statusMsg.style.color = "#ff4757";
                 }
             })
